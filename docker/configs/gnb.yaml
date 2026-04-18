@@ -1,0 +1,19 @@
+mcc: 'MCC'
+mnc: 'MNC'
+
+nci: '0x000000010'
+idLength: 32
+tac: TAC
+
+linkIp: GNB_IP
+ngapIp: GNB_IP
+gtpIp: GNB_IP
+
+amfConfigs:
+  - address: AMF_IP
+    port: 38412
+
+slices:
+  - sst: 1
+
+ignoreStreamIds: true

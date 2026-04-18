@@ -1,0 +1,58 @@
+services:
+  ntn-gnb:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ntn-litesys-ueransim:latest
+    container_name: ntn_gnb
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - ./configs:/configs:ro
+      - ./scripts:/scripts:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    entrypoint: ["/bin/bash", "/scripts/gnb-entrypoint.sh"]
+    expose:
+      - "38412/sctp"
+      - "2152/udp"
+      - "4997/udp"
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+    networks:
+      default:
+        ipv4_address: ${GNB_IP}
+
+  ntn-ue:
+    image: ntn-litesys-ueransim:latest
+    container_name: ntn_ue
+    depends_on:
+      - ntn-gnb
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - ./configs:/configs:ro
+      - ./scripts:/scripts:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    entrypoint: ["/bin/bash", "/scripts/ue-entrypoint.sh"]
+    expose:
+      - "4997/udp"
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+    networks:
+      default:
+        ipv4_address: ${UE_IP}
+
+networks:
+  default:
+    external: true
+    name: docker_open5gs_default
