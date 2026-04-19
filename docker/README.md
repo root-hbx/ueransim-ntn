@@ -5,6 +5,18 @@ on the existing Open5GS 5GC network (`docker_open5gs_default`, 172.22.0.0/24).
 
 ## Quick Start
 
+```sh
+# Daily Use
+# 5gc
+cd open5gs-docker && docker compose -f sa-deploy.yaml down
+cd open5gs-docker && docker compose -f sa-deploy.yaml up -d
+# kernel for network functions
+cd ntn-litesys
+./scripts/host-prepare.sh
+# large-scale test
+python ueran.py up -n 500 --batch-size 20 --batch-delay 20
+```
+
 (1) Prerequisites
 
 1. Open5GS 5GC is running:
