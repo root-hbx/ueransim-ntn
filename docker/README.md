@@ -54,6 +54,62 @@ docker exec ntn_ue /UERANSIM/build/nr-cli imsi-001011234567895 -e status
 docker compose down
 ```
 
+## Multi-pair mode (`ueran.py`)
+
+For N independent UE-gNB pairs, use the top-level launcher at
+`ntn-litesys/ueran.py` (not this directory). It generates a compose file
+into `docker/generated/`, registers N subscribers in MongoDB, and
+spawns `ntn_gnb_<i>` + `ntn_ue_<i>` (IPs `172.22.0.{80+i}` / `172.22.0.{110+i}`,
+IMSI `0010100000000{i:02d}`, NCI `0x0000000{i:02x}`). Stop the single-pair
+compose first — multi-pair reuses the same image.
+
+```bash
+cd ntn-litesys
+(cd docker && docker compose down)   # stop single-pair
+
+python ueran.py up -n 10             # spawn 10 pairs
+python ueran.py status                # table of states + TUN IPs
+python ueran.py logs 5                # last 50 lines for pair 5
+python ueran.py ping 5                # ping 8.8.8.8 via ntn_ue_5's uesimtun0
+python ueran.py down                  # tear down + deregister
+```
+
+IP layout (needs wider subnet — see below):
+- gNB: `172.22.{1+(i-1)/254}.{1+(i-1)%254}` → `.1.1 .. .1.254 .. .2.1 ..`
+- UE:  `172.22.{10+(i-1)/254}.{1+(i-1)%254}` → `.10.1 .. .10.254 .. .11.1 ..`
+- IMSI: `00101000000{i:04d}` (up to 9999)
+
+### One-time: expand `docker_open5gs_default` from /24 to /16
+
+The default subnet `172.22.0.0/24` holds only ~200 usable IPs and is the hard
+ceiling on pair count. Open5GS services (IPs in `172.22.0.x`) remain valid
+under a wider `172.22.0.0/16`, so this is non-breaking for the 5GC — but the
+network must be recreated.
+
+```bash
+cd ~/paper/SaTrinity/open5gs-docker
+
+# 1. Stop everything on the network (5GC + any UERANSIM + ntn-litesys pairs)
+docker compose -f sa-deploy.yaml down
+
+# 2. Edit .env: change  TEST_NETWORK=172.22.0.0/24  →  TEST_NETWORK=172.22.0.0/16
+sed -i 's|^TEST_NETWORK=.*|TEST_NETWORK=172.22.0.0/16|' .env
+
+# 3. Remove the old network (compose will recreate it with the new subnet)
+docker network rm docker_open5gs_default
+
+# 4. Bring Open5GS back up — subscriber MongoDB data is preserved in the volume
+docker compose -f sa-deploy.yaml up -d
+
+# 5. Verify
+docker network inspect docker_open5gs_default \
+  --format '{{(index .IPAM.Config 0).Subnet}}'   # should print 172.22.0.0/16
+```
+
+After that, `ueran.py` supports up to 500 pairs (its internal cap). `ueran.py`
+runs a preflight check and will print exactly these steps if the subnet is
+still too narrow.
+
 ## Notes
 
 - `nr-gnb` uses SCTP for NGAP; if the host kernel lacks SCTP, run

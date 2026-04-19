@@ -1,7 +1,7 @@
 mcc: 'MCC'
 mnc: 'MNC'
 
-nci: '0x000000010'
+nci: 'NCI'
 idLength: 32
 tac: TAC
 
