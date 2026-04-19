@@ -44,7 +44,7 @@ UE_AMF = "8000"
 UE_IMEI = "356938035643803"
 UE_IMEISV = "4370816125816151"
 
-MAX_PAIRS = 400  # requires docker_open5gs_default subnet ≥ /22
+MAX_PAIRS = 500  # hard cap: Linux bridge BR_MAX_PORTS=1024 (15 Open5GS + 2*N ≤ 1024)
 
 
 def _block_ip(base2: int, base3: int, i: int) -> str:

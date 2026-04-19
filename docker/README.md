@@ -106,30 +106,74 @@ docker network inspect docker_open5gs_default \
   --format '{{(index .IPAM.Config 0).Subnet}}'   # should print 172.22.0.0/16
 ```
 
-After that, `ueran.py` supports up to 500 pairs (its internal cap). `ueran.py`
-runs a preflight check and will print exactly these steps if the subnet is
-still too narrow.
+After that, `ueran.py` supports up to 500 pairs (its internal cap — see
+"Hard ceiling" below). `ueran.py` runs a preflight check and will print
+exactly these steps if the subnet is still too narrow.
 
-### One-time per boot: raise host ARP/neighbor thresholds
+### One-time per boot: raise host kernel thresholds
 
-Launching ≳ 240 pairs blows past Ubuntu's default
-`net.ipv4.neigh.default.gc_thresh3=1024`. Symptoms: later containers never
-reach PDU-session state (empty TUN IP in `ueran.py status`), and the host's
-own outbound network (`curl`, `ping`) hangs — recoverable only by
-`ueran.py down`. `dmesg` shows `neighbour: arp_cache: neighbor table
-overflow!` repeatedly.
+Two kernel limits bite at scale and must be bumped before any large-N run:
 
-Run before a large launch (values reset on reboot; no persistent change):
+1. **ARP/neighbor cache** — default `gc_thresh3=1024`. Breaks at N ≳ 240.
+   Later containers never reach PDU-session state (empty TUN IP in
+   `ueran.py status`) and the host's own outbound network (`curl`, `ping`)
+   hangs — recoverable only by `ueran.py down`. `dmesg` shows
+   `neighbour: arp_cache: neighbor table overflow!` repeatedly.
+
+2. **inotify instances** — default `fs.inotify.max_user_instances=128`.
+   Breaks around N ≳ 300 because every containerd-shim/runc claims
+   instances; `docker compose up` fails with "No space left on device"
+   even though disk is fine.
+
+Run once per boot (runtime-only, no persistent change to `/etc/sysctl.d`):
 
 ```bash
 ./scripts/host-prepare.sh         # from ntn-litesys/
 ```
 
-Monitor while launching:
+The script sets gc_thresh3 to 16384 and inotify instances to 8192, which
+covers N up to the 500-pair hard ceiling (see below). Monitor during launch:
 ```bash
-watch -n 1 'ip -4 neigh | wc -l'
-sudo dmesg -wT | grep -iE 'neighbor table overflow'
+watch -n 1 'ip -4 neigh | wc -l; cat /proc/sys/fs/inotify/max_user_instances'
+sudo dmesg -wT | grep -iE 'neighbor table overflow|No space left|inotify'
 ```
+
+### Open5GS config (tuned for multi-pair)
+
+The in-repo Open5GS config is already provisioned with generous headroom:
+
+| Knob | File | Value | Reason |
+|---|---|---|---|
+| `MAX_NUM_UE` | `open5gs-docker/.env` | 2048 | total UE cap |
+| `UE_IPV4_INTERNET` | `open5gs-docker/.env` | `192.168.96.0/21` | UE IP pool = 2046 IPs |
+| `global.max.peer` | `{amf,smf,upf}.yaml` | 2048 | NGAP + PFCP + SBI peer cap |
+
+These are over-provisioned relative to the 500-pair hard ceiling below —
+no harm, just room if the ceiling ever lifts. Changes require
+`docker compose -f sa-deploy.yaml down && up -d` on the 5GC side;
+MongoDB subscriber data survives since the volume is preserved.
+
+### Hard ceiling: Linux bridge BR_MAX_PORTS = 1024
+
+The per-bridge port table in the Linux kernel is a fixed 10-bit index
+(`#define BR_PORT_BITS 10` in `net/bridge/br_private.h` → 1024 slots per
+bridge). It is a compile-time constant — no sysctl, no module param.
+
+One Docker network = one bridge. Each container's veth occupies one slot.
+On `docker_open5gs_default`:
+
+```
+  15 Open5GS services  +  N pairs × 2 veth  ≤  1024
+                                   ⇒  N ≤ 504
+```
+
+Beyond ~500 pairs, `docker compose up` fails with
+`adding interface veth... to bridge br-... failed: exchange full`.
+`MAX_PAIRS=500` in `ueran.py` reflects this physical limit; raising the
+constant alone will not help.
+
+Going past 500 requires splitting containers across two Docker bridges
+(with AMF/UPF attached to both) — designed but not implemented.
 
 ## Notes
 
