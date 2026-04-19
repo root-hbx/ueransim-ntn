@@ -110,6 +110,27 @@ After that, `ueran.py` supports up to 500 pairs (its internal cap). `ueran.py`
 runs a preflight check and will print exactly these steps if the subnet is
 still too narrow.
 
+### One-time per boot: raise host ARP/neighbor thresholds
+
+Launching ≳ 240 pairs blows past Ubuntu's default
+`net.ipv4.neigh.default.gc_thresh3=1024`. Symptoms: later containers never
+reach PDU-session state (empty TUN IP in `ueran.py status`), and the host's
+own outbound network (`curl`, `ping`) hangs — recoverable only by
+`ueran.py down`. `dmesg` shows `neighbour: arp_cache: neighbor table
+overflow!` repeatedly.
+
+Run before a large launch (values reset on reboot; no persistent change):
+
+```bash
+./scripts/host-prepare.sh         # from ntn-litesys/
+```
+
+Monitor while launching:
+```bash
+watch -n 1 'ip -4 neigh | wc -l'
+sudo dmesg -wT | grep -iE 'neighbor table overflow'
+```
+
 ## Notes
 
 - `nr-gnb` uses SCTP for NGAP; if the host kernel lacks SCTP, run
