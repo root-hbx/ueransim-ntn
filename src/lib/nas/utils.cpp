@@ -274,8 +274,27 @@ IEDnn DnnFromApn(const std::string &apn)
 {
     IEDnn dnn;
     dnn.apn = OctetString::FromSpare(static_cast<int>(apn.length()) + 1);
-    dnn.apn.data()[0] = static_cast<uint8_t>(apn.length());
-    std::memcpy(dnn.apn.data() + 1, apn.data(), apn.length());
+
+    size_t writeIndex = 0;
+    size_t labelStart = 0;
+
+    while (labelStart < apn.length())
+    {
+        const auto dotPos = apn.find('.', labelStart);
+        const auto labelEnd = dotPos == std::string::npos ? apn.length() : dotPos;
+        const auto labelLength = labelEnd - labelStart;
+
+        dnn.apn.data()[writeIndex] = static_cast<uint8_t>(labelLength);
+        std::memcpy(dnn.apn.data() + writeIndex + 1, apn.data() + labelStart, labelLength);
+
+        writeIndex += labelLength + 1;
+
+        if (dotPos == std::string::npos)
+            break;
+
+        labelStart = dotPos + 1;
+    }
+
     return dnn;
 }
 

@@ -2,7 +2,7 @@
   <a href="https://github.com/aligungr/UERANSIM"><img src="/.github/logo.png" width="75" title="UERANSIM"></a>
 </p>
 <p align="center">
-<img src="https://img.shields.io/badge/UERANSIM-v3.2.8-blue" />
+<img src="https://img.shields.io/badge/UERANSIM-v3.3.0-blue" />
 <img src="https://img.shields.io/badge/3GPP-R15-orange" />
 <img src="https://img.shields.io/badge/License-AGPL--3.0-green"/>
 </p>
@@ -52,4 +52,4 @@ All source code and related files including documentation and wiki pages are
 dual licensed with [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.en.html) and a commercial license.
 
 > [!WARNING]
-> Closed-source commercial usage of UERANSIM may **not** be permitted with the AGPL-3.0. If that license is not compatable with your use case, please contact [ueransim@gmail.com](mailto:ueransim@gmail.com) to buy a commercial license.
+> Closed-source commercial usage of UERANSIM may **not** be permitted with the AGPL-3.0. If that license is not compatible with your use case, please contact [ueransim@gmail.com](mailto:ueransim@gmail.com) to buy a commercial license.
